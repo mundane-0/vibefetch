@@ -28,7 +28,6 @@ detect_inir_colors() {
     if [ -n "$color_file" ] && [ -f "$color_file" ]; then
         if [[ "$color_file" == *".json" ]]; then
             if ! command -v jq >/dev/null 2>&1; then return 1; fi
-            # Ensure we strip ALL newlines/carriage returns from jq output
             local c_p=$(jq -r '.primary // empty' "$color_file" | tr -d '\r\n#')
             local c_s=$(jq -r '.secondary // empty' "$color_file" | tr -d '\r\n#')
             local c_l=$(jq -r '.tertiary // empty' "$color_file" | tr -d '\r\n#')
@@ -64,7 +63,6 @@ load_color() {
 }
 
 # --- LAYOUTS CORE BUILDER ---
-# Rewritten completely to avoid bash syntax bugs like silent aborts or broken appends
 sp() {
     if [ "$SIZE" = "compact" ]; then
         printf "%b\n" "$1"
@@ -89,7 +87,6 @@ preset_classic() {
         if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
         out="${out}${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
     fi
-    # Trim pending newline for single continuous print
     sp "$out"
 }
 
@@ -247,6 +244,32 @@ manage_startup() {
     exit 0
 }
 
+show_help() {
+    load_color "$COLOR" # Ensure colors are setup for the beautiful help menu
+    
+    printf "\n"
+    printf "${c_logo}${c_bold}  🌊 VIBEFETCH ${c_reset} - Minimalist Linux Sysfetch\n"
+    printf "\n"
+    printf "${c_prim}  USAGE:${c_reset}\n"
+    printf "    vibefetch [OPTIONS]\n"
+    printf "\n"
+    printf "${c_prim}  OPTIONS (Design):${c_reset}\n"
+    printf "    ${c_sec}-c, --color <name>${c_reset}     Set aesthetic theme color\n"
+    printf "                           (inir, ocean, dracula, cyberpunk, forest, vaporwave)\n"
+    printf "    ${c_sec}-p, --preset <name>${c_reset}    Set visual layout architecture\n"
+    printf "                           (classic, full, block, boxes, dots, nano)\n"
+    printf "    ${c_sec}-s, --size <name>${c_reset}      Set padding and line spacing\n"
+    printf "                           (compact, normal, large)\n"
+    printf "\n"
+    printf "${c_prim}  OPTIONS (Functional):${c_reset}\n"
+    printf "    ${c_sec}--preview${c_reset}              Show all presets with the current color and size combo\n"
+    printf "    ${c_sec}--enable-startup${c_reset}       Add to your shell initialization script to start on open\n"
+    printf "    ${c_sec}--disable-startup${c_reset}      Safely remove from auto-start without breaking anything\n"
+    printf "    ${c_sec}-h, help, --help${c_reset}       Show this beautiful help menu\n"
+    printf "\n"
+    printf "${c_logo}  Tinkered with ♥ from Bedrock Linux.${c_reset}\n\n"
+}
+
 print_info() {
     load_color "$COLOR"
     case "$PRESET" in
@@ -271,6 +294,15 @@ preview() {
 load_config
 CONFIG_CHANGED=false
 
+# Handle 0-arg fast path or parse loops
+if [ "$#" -eq 1 ]; then
+    if [ "$1" = "help" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+        show_help; exit 0
+    elif [ "$1" = "--preview" ]; then
+        preview; exit 0
+    fi
+fi
+
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --enable-startup)  manage_startup "enable" ;;
@@ -279,15 +311,8 @@ while [[ "$#" -gt 0 ]]; do
         -c|--color)        COLOR="$2"; CONFIG_CHANGED=true; shift ;;
         -p|--preset)       PRESET="$2"; CONFIG_CHANGED=true; shift ;;
         --preview)         preview ;;
-        -h|--help)
-            echo "Usage: vibefetch [OPTIONS]"
-            echo "  -c, --color <name>    inir, ocean, dracula, cyberpunk, forest, vaporwave"
-            echo "  -p, --preset <name>   classic, full, block, boxes, dots, nano"
-            echo "  -s, --size <name>     compact, normal, large"
-            echo "  --preview             Show all presets for current color and size"
-            echo "  --enable-startup      Auto-start on terminal open"
-            echo "  --disable-startup     Remove auto-start"
-            exit 0 ;;
+        help|-h|--help)    show_help; exit 0 ;;
+        *)                 echo "Unknown option: $1"; show_help; exit 1 ;;
     esac
     shift
 done
