@@ -9,8 +9,11 @@ get_uptime() { uptime -p | sed 's/up //'; }
 get_memory() { free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"; }
 
 detect_inir_colors() {
+    # Read custom path from config if set, otherwise try defaults
     local color_file=""
-    if [ -f "$HOME/.cache/inir/colors" ]; then
+    if [ -n "$INIR_COLOR_PATH" ] && [ -f "$INIR_COLOR_PATH" ]; then
+        color_file="$INIR_COLOR_PATH"
+    elif [ -f "$HOME/.cache/inir/colors" ]; then
         color_file="$HOME/.cache/inir/colors"
     elif [ -f "$HOME/.cache/wal/colors" ]; then
         color_file="$HOME/.cache/wal/colors"
@@ -18,7 +21,7 @@ detect_inir_colors() {
         color_file="$HOME/.config/wpg/sequences"
     fi
 
-    if [ -n "$color_file" ]; then
+    if [ -n "$color_file" ] && [ -f "$color_file" ]; then
         local colors=($(head -6 "$color_file" | tr -d '#'))
         if [ ${#colors[@]} -ge 3 ]; then
             c_prim="\e[38;2;$((16#${colors[0]:0:2}));$((16#${colors[0]:2:2}));$((16#${colors[0]:4:2}))m"
@@ -87,6 +90,7 @@ load_config() {
     SHOW_KERNEL=true
     SHOW_UPTIME=true
     SHOW_MEMORY=true
+    INIR_COLOR_PATH=""
 
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
@@ -97,6 +101,7 @@ load_config() {
         echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
         echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
         echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
+        echo 'INIR_COLOR_PATH=""' >> "$CONFIG_FILE"
     fi
 }
 
@@ -107,20 +112,18 @@ save_config() {
     echo 'SHOW_KERNEL='"$SHOW_KERNEL" >> "$CONFIG_FILE"
     echo 'SHOW_UPTIME='"$SHOW_UPTIME" >> "$CONFIG_FILE"
     echo 'SHOW_MEMORY='"$SHOW_MEMORY" >> "$CONFIG_FILE"
+    echo 'INIR_COLOR_PATH="'"$INIR_COLOR_PATH"'"' >> "$CONFIG_FILE"
 }
 
-# Detect terminal emulator (real emulator, not the shell)
 detect_terminal() {
-    # Check well-known env variables first
     if [ -n "$KITTY_WINDOW_ID" ]; then echo "kitty"; return; fi
     if [ -n "$ALACRITTY_WINDOW_ID" ]; then echo "alacritty"; return; fi
     if [ -n "$WEZTERM_EXECUTABLE" ]; then echo "wezterm"; return; fi
     if [ -n "$KONSOLE_VERSION" ]; then echo "konsole"; return; fi
     if [ -n "$GNOME_TERMINAL_SCREEN" ]; then echo "gnome-terminal"; return; fi
     if [ "$TERM_PROGRAM" = "vscode" ]; then echo "vscode"; return; fi
-    # foot sets $TERM to foot or foot-direct
     if [ "$TERM" = "foot" ] || [ "$TERM" = "foot-direct" ]; then echo "foot"; return; fi
-    # Walk up process tree looking for known terminal binaries
+    
     local pid=$$
     for _ in 1 2 3 4 5; do
         pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
@@ -135,9 +138,18 @@ detect_terminal() {
     echo "unknown"
 }
 
-# Detect the real interactive shell (not the one running this script)
 detect_shell() {
-    # $SHELL is the login shell, most reliable
+    # True active shell checking parent processes
+    local pid=$$
+    for _ in 1 2 3; do
+        pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+        [ -z "$pid" ] || [ "$pid" = "1" ] && break
+        local comm
+        comm=$(ps -o comm= -p "$pid" 2>/dev/null)
+        case "$comm" in
+            fish|zsh|bash) echo "$comm"; return ;;
+        esac
+    done
     basename "${SHELL:-bash}"
 }
 
@@ -155,7 +167,6 @@ get_rc_file() {
         zsh)
             echo "$HOME/.zshrc" ;;
         bash|*)
-            # prefer .bashrc, fall back to .bash_profile
             if [ -f "$HOME/.bash_profile" ] && [ ! -f "$HOME/.bashrc" ]; then
                 echo "$HOME/.bash_profile"
             else
@@ -166,12 +177,9 @@ get_rc_file() {
 
 manage_startup() {
     local action="$1"
-    local shell_name
-    shell_name=$(detect_shell)
-    local rc_file
-    rc_file=$(get_rc_file "$shell_name")
-    local term
-    term=$(detect_terminal)
+    local shell_name=$(detect_shell)
+    local rc_file=$(get_rc_file "$shell_name")
+    local term=$(detect_terminal)
 
     local hook_start="# --- VIBEFETCH AUTO-START ---"
     local hook_end="# --- VIBEFETCH AUTO-START END ---"
@@ -185,8 +193,8 @@ manage_startup() {
             echo "✅ Already enabled in $rc_file"
         else
             touch "$rc_file"
-            printf '\n%s\nvibefetch\n%s\n' "$hook_start" "$hook_end" >> "$rc_file"
-            echo "✨ Enabled! Restart $term or run: source $rc_file"
+            printf '\n%s\nvibefetch 2>/dev/null || true\n%s\n' "$hook_start" "$hook_end" >> "$rc_file"
+            echo "✨ Enabled! Restart $term to test."
         fi
     elif [ "$action" = "disable" ]; then
         if grep -q "$hook_start" "$rc_file" 2>/dev/null; then
