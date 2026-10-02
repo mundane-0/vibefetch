@@ -9,25 +9,46 @@ get_uptime() { uptime -p | sed 's/up //'; }
 get_memory() { free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"; }
 
 detect_inir_colors() {
-    # Read custom path from config if set, otherwise try defaults
+    # Check for iNiR's actual generated colors.json
     local color_file=""
-    if [ -n "$INIR_COLOR_PATH" ] && [ -f "$INIR_COLOR_PATH" ]; then
-        color_file="$INIR_COLOR_PATH"
-    elif [ -f "$HOME/.cache/inir/colors" ]; then
-        color_file="$HOME/.cache/inir/colors"
-    elif [ -f "$HOME/.cache/wal/colors" ]; then
-        color_file="$HOME/.cache/wal/colors"
-    elif [ -f "$HOME/.config/wpg/sequences" ]; then
-        color_file="$HOME/.config/wpg/sequences"
+    if [ -f "$HOME/.local/state/quickshell/user/generated/colors.json" ]; then
+        color_file="$HOME/.local/state/quickshell/user/generated/colors.json"
+    fi
+
+    # Fallbacks for other wallpaper engines explicitly
+    if [ -z "$color_file" ]; then
+        if [ -n "$INIR_COLOR_PATH" ] && [ -f "$INIR_COLOR_PATH" ]; then
+            color_file="$INIR_COLOR_PATH"
+        elif [ -f "$HOME/.cache/wal/colors" ]; then
+            color_file="$HOME/.cache/wal/colors"
+        elif [ -f "$HOME/.config/wpg/sequences" ]; then
+            color_file="$HOME/.config/wpg/sequences"
+        fi
     fi
 
     if [ -n "$color_file" ] && [ -f "$color_file" ]; then
-        local colors=($(head -6 "$color_file" | tr -d '#'))
-        if [ ${#colors[@]} -ge 3 ]; then
-            c_prim="\e[38;2;$((16#${colors[0]:0:2}));$((16#${colors[0]:2:2}));$((16#${colors[0]:4:2}))m"
-            c_sec="\e[38;2;$((16#${colors[1]:0:2}));$((16#${colors[1]:2:2}));$((16#${colors[1]:4:2}))m"
-            c_logo="\e[38;2;$((16#${colors[2]:0:2}));$((16#${colors[2]:2:2}));$((16#${colors[2]:4:2}))m"
-            return 0
+        if [[ "$color_file" == *".json" ]]; then
+            # Parse iNiR material colors JSON
+            if ! command -v jq >/dev/null 2>&1; then return 1; fi
+            local c_p=$(jq -r '.primary // empty' "$color_file" | tr -d '#')
+            local c_s=$(jq -r '.secondary // empty' "$color_file" | tr -d '#')
+            local c_l=$(jq -r '.tertiary // empty' "$color_file" | tr -d '#')
+            
+            if [ -n "$c_p" ]; then
+                c_prim="\e[38;2;$((16#${c_p:0:2}));$((16#${c_p:2:2}));$((16#${c_p:4:2}))m"
+                c_sec="\e[38;2;$((16#${c_s:0:2}));$((16#${c_s:2:2}));$((16#${c_s:4:2}))m"
+                c_logo="\e[38;2;$((16#${c_l:0:2}));$((16#${c_l:2:2}));$((16#${c_l:4:2}))m"
+                return 0
+            fi
+        else
+            # Parse standard line-separated Hex (Pywal/Wpgtk style)
+            local colors=($(head -6 "$color_file" | tr -d '#'))
+            if [ ${#colors[@]} -ge 3 ]; then
+                c_prim="\e[38;2;$((16#${colors[0]:0:2}));$((16#${colors[0]:2:2}));$((16#${colors[0]:4:2}))m"
+                c_sec="\e[38;2;$((16#${colors[1]:0:2}));$((16#${colors[1]:2:2}));$((16#${colors[1]:4:2}))m"
+                c_logo="\e[38;2;$((16#${colors[2]:0:2}));$((16#${colors[2]:2:2}));$((16#${colors[2]:4:2}))m"
+                return 0
+            fi
         fi
     fi
     return 1
@@ -139,7 +160,6 @@ detect_terminal() {
 }
 
 detect_shell() {
-    # True active shell checking parent processes
     local pid=$$
     for _ in 1 2 3; do
         pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
