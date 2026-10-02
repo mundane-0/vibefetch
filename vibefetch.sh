@@ -67,11 +67,21 @@ load_config() {
         source "$CONFIG_FILE"
     else
         mkdir -p "$CONFIG_DIR"
-        echo 'COLOR="ocean"   # ocean, dracula, cyberpunk, forest, vaporwave' > "$CONFIG_FILE"
-        echo 'PRESET="classic" # classic, block, boxes, dots' >> "$CONFIG_FILE"
+        echo 'COLOR="ocean"' > "$CONFIG_FILE"
+        echo 'PRESET="classic"' >> "$CONFIG_FILE"
         echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
         echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
         echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
+    fi
+}
+
+save_config() {
+    if [ -d "$CONFIG_DIR" ]; then
+        echo 'COLOR="'"$COLOR"'"' > "$CONFIG_FILE"
+        echo 'PRESET="'"$PRESET"'"' >> "$CONFIG_FILE"
+        echo 'SHOW_KERNEL='"$SHOW_KERNEL" >> "$CONFIG_FILE"
+        echo 'SHOW_UPTIME='"$SHOW_UPTIME" >> "$CONFIG_FILE"
+        echo 'SHOW_MEMORY='"$SHOW_MEMORY" >> "$CONFIG_FILE"
     fi
 }
 
@@ -95,15 +105,18 @@ preview() {
 }
 
 load_config
+CONFIG_CHANGED=false
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        -c|--color) COLOR="$2"; shift ;;
-        -p|--preset) PRESET="$2"; shift ;;
+        -c|--color) COLOR="$2"; CONFIG_CHANGED=true; shift ;;
+        -p|--preset) PRESET="$2"; CONFIG_CHANGED=true; shift ;;
         --preview) preview ;;
         -h|--help) echo "Usage: vibefetch [-c color] [-p preset] [--preview]"; exit 0 ;;
     esac
     shift
 done
+
+[ "$CONFIG_CHANGED" = true ] && save_config
 
 print_info
