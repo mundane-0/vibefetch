@@ -51,12 +51,15 @@ Memory | 6.6GB / 15.9GB SYS  7.2.7-arch1-1
                         RAM  6678MB / 15897MB
 ```
 
-## Uninstall
+## Uninstall (3 Seconds)
 
 ```bash
-vibefetch --disable-startup
-sudo rm -f /usr/local/bin/vibefetch
+vibefetch --uninstall
 ```
+
+Removes the startup hook **and** the binary in one shot. Startup hooks are
+guarded (`command -v vibefetch`), so even a plain `sudo rm` never breaks your
+terminal — the hook just silently does nothing.
 
 ## Config
 
