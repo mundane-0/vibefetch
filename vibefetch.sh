@@ -8,7 +8,7 @@ get_kernel() { uname -r; }
 get_uptime() { uptime -p | sed 's/up //'; }
 get_memory() { free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"; }
 
-load_theme() {
+load_color() {
     case "$1" in
         dracula) c_prim="\e[35m"; c_sec="\e[36m"; c_logo="\e[35m" ;;
         cyberpunk) c_prim="\e[33m"; c_sec="\e[36m"; c_logo="\e[36m" ;;
@@ -20,28 +20,7 @@ load_theme() {
     c_bold="\e[1m"
 }
 
-load_config() {
-    CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
-    CONFIG_FILE="$CONFIG_DIR/config"
-    THEME="ocean"
-    SHOW_KERNEL=true
-    SHOW_UPTIME=true
-    SHOW_MEMORY=true
-    if [ -f "$CONFIG_FILE" ]; then
-        source "$CONFIG_FILE"
-    else
-        mkdir -p "$CONFIG_DIR"
-        echo '# Vibefetch Config' > "$CONFIG_FILE"
-        echo '# Themes: ocean, dracula, cyberpunk, forest, vaporwave' >> "$CONFIG_FILE"
-        echo 'THEME="ocean"' >> "$CONFIG_FILE"
-        echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
-        echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
-        echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
-    fi
-}
-
-print_info() {
-    load_theme "$THEME"
+preset_classic() {
     echo -e "${c_logo}${c_bold}  VIBEFETCH ${c_reset}"
     echo -e "${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}"
     [ "$SHOW_KERNEL" = true ] && echo -e "${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}"
@@ -50,23 +29,30 @@ print_info() {
     echo ""
 }
 
-preview_themes() {
-    for t in ocean dracula cyberpunk forest vaporwave; do
-        THEME="$t"
-        echo -e "Previewing preset: \e[1m$t\e[0m"
-        print_info
-    done
+load_config() {
+    CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
+    CONFIG_FILE="$CONFIG_DIR/config"
+    COLOR="ocean"
+    PRESET="classic"
+    SHOW_KERNEL=true
+    SHOW_UPTIME=true
+    SHOW_MEMORY=true
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    else
+        mkdir -p "$CONFIG_DIR"
+        echo 'COLOR="ocean"' > "$CONFIG_FILE"
+        echo 'PRESET="classic"' >> "$CONFIG_FILE"
+        echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
+        echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
+        echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
+    fi
+}
+
+print_info() {
+    load_color "$COLOR"
+    preset_classic
 }
 
 load_config
-
-while [[ "$#" -gt 0 ]]; do
-    case $1 in
-        -t|--theme) THEME="$2"; shift ;;
-        -p|--preview) preview_themes; exit 0 ;;
-        -h|--help) echo "Usage: vibefetch [-t theme] [-p|--preview]"; exit 0 ;;
-    esac
-    shift
-done
-
 print_info
