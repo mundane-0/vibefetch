@@ -1,19 +1,20 @@
 # Vibefetch 🌊
 
-A minimal, aesthetic system fetch tool for Linux vibecoders.
+A minimalist, aesthetic system fetch tool for Linux vibecoders.
+Takes literally 3 seconds to install and removes all the bloat.
 
 ## Features
 
 - 🐧 **Bedrock Linux Support:** Accurately detects `Bedrock Linux` natively!
-- 🎨 **Colors & Presets:** Choose from 5 colors (`ocean`, `dracula`, `cyberpunk`, `forest`, `vaporwave`) and 4 vastly different layout presets (`classic`, `inline`, `minimal`, `block`).
+- 🎨 **Colors & Presets:** Choose from 5 colors (`ocean`, `dracula`, `cyberpunk`, `forest`, `vaporwave`) and 4 beautiful layout presets (`classic`, `boxes`, `dots`, `block`).
 - ⚙️ **Configurable:** Settings auto-generated at `~/.config/vibefetch/config`.
 
-## Installation
+## Installation (3 Seconds)
+
+Copy and paste this single block into your terminal to safely install `vibefetch` globally:
 
 ```bash
-git clone https://github.com/mundane-0/vibefetch.git
-cd vibefetch
-sudo make install
+sudo curl -sL https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefetch.sh -o /usr/local/bin/vibefetch && sudo chmod +x /usr/local/bin/vibefetch
 ```
 
 ## Usage
@@ -26,5 +27,13 @@ vibefetch --preview
 vibefetch
 
 # Override layout and color on the fly
-vibefetch --color cyberpunk --preset block
+vibefetch --color dracula --preset boxes
+```
+
+## Uninstall (3 Seconds)
+
+If you ever want to remove it:
+
+```bash
+sudo rm -f /usr/local/bin/vibefetch
 ```
