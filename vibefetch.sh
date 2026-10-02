@@ -59,7 +59,17 @@ load_config() {
     SHOW_KERNEL=true
     SHOW_UPTIME=true
     SHOW_MEMORY=true
-    if [ -f "$CONFIG_FILE" ]; then source "$CONFIG_FILE"; fi
+    
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    else
+        mkdir -p "$CONFIG_DIR"
+        echo 'COLOR="ocean"   # ocean, dracula, cyberpunk, forest, vaporwave' > "$CONFIG_FILE"
+        echo 'PRESET="classic" # classic, inline, minimal, block' >> "$CONFIG_FILE"
+        echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
+        echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
+        echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
+    fi
 }
 
 print_info() {
@@ -72,5 +82,25 @@ print_info() {
     esac
 }
 
+preview() {
+    for p in classic inline minimal block; do
+        PRESET="$p"
+        echo -e "--- Previewing PRESET: \e[1m$p\e[0m (Color: $COLOR) ---"
+        print_info
+    done
+    exit 0
+}
+
 load_config
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -c|--color) COLOR="$2"; shift ;;
+        -p|--preset) PRESET="$2"; shift ;;
+        --preview) preview ;;
+        -h|--help) echo "Usage: vibefetch [-c color] [-p preset] [--preview]"; exit 0 ;;
+    esac
+    shift
+done
+
 print_info
