@@ -20,7 +20,21 @@ load_theme() {
     c_bold="\e[1m"
 }
 
-THEME="ocean"
+load_config() {
+    CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
+    CONFIG_FILE="$CONFIG_DIR/config"
+    THEME="ocean"
+    if [ -f "$CONFIG_FILE" ]; then
+        source "$CONFIG_FILE"
+    else
+        mkdir -p "$CONFIG_DIR"
+        echo '# Vibefetch Config' > "$CONFIG_FILE"
+        echo '# Valid Themes: ocean, dracula, cyberpunk, forest, vaporwave' >> "$CONFIG_FILE"
+        echo 'THEME="ocean"' >> "$CONFIG_FILE"
+    fi
+}
+
+load_config
 load_theme "$THEME"
 
 echo -e "${c_logo}${c_bold}  VIBEFETCH ${c_reset}"
