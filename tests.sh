@@ -37,10 +37,10 @@ check "--detect-env" bash vibefetch.sh --detect-env
 t=$(mktemp -d)
 HOME="$t" SHELL=/bin/bash bash vibefetch.sh --enable-startup >/dev/null 2>&1
 HOME="$t" SHELL=/bin/bash bash vibefetch.sh --enable-startup >/dev/null 2>&1
-n=$(grep -c "VIBEFETCH AUTO-START ---" "$t/.bashrc" 2>/dev/null || echo 0)
+n=$(grep -c "VIBEFETCH AUTO-START ---" "$t/.bashrc" 2>/dev/null || true)
 [ "$n" = "1" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: re-enable duplicated hook ($n)"; }
 HOME="$t" SHELL=/bin/bash bash vibefetch.sh --disable-startup >/dev/null 2>&1
-n=$(grep -c "VIBEFETCH" "$t/.bashrc" 2>/dev/null || echo 0)
+n=$(grep -c "VIBEFETCH" "$t/.bashrc" 2>/dev/null || true)
 [ "$n" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: disable left $n hooks"; }
 rm -rf "$t"
 
@@ -50,7 +50,7 @@ HOME="$t" SHELL=/usr/bin/fish bash vibefetch.sh --enable-startup >/dev/null 2>&1
 f="$t/.config/fish/config.fish"
 grep -q "command -v vibefetch" "$f" 2>/dev/null && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: fish hook not guarded"; }
 HOME="$t" SHELL=/usr/bin/fish bash vibefetch.sh --disable-startup >/dev/null 2>&1
-n=$(grep -c "VIBEFETCH" "$f" 2>/dev/null || echo 0)
+n=$(grep -c "VIBEFETCH" "$f" 2>/dev/null || true)
 [ "$n" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: fish disable left $n hooks"; }
 rm -rf "$t"
 
@@ -58,7 +58,7 @@ rm -rf "$t"
 t=$(mktemp -d)
 printf '# --- VIBEFETCH START ---\nvibefetch\n# --- VIBEFETCH END ---\n' > "$t/.bashrc"
 HOME="$t" SHELL=/bin/bash bash vibefetch.sh --disable-startup >/dev/null 2>&1
-n=$(grep -c "VIBEFETCH" "$t/.bashrc" 2>/dev/null || echo 0)
+n=$(grep -c "VIBEFETCH" "$t/.bashrc" 2>/dev/null || true)
 [ "$n" = "0" ] && pass=$((pass+1)) || { fail=$((fail+1)); echo "FAIL: legacy hook survived ($n)"; }
 rm -rf "$t"
 
