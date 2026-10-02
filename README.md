@@ -1,41 +1,67 @@
-# Vibefetch 🌊
+# 🌊 Vibefetch
 
 A minimalist, aesthetic system fetch tool for Linux vibecoders.
-Takes literally 3 seconds to install and removes all the bloat.
-
-## Features
-
-- 🐧 **Bedrock Linux Support:** Accurately detects `Bedrock Linux` natively!
-- 🎨 **Layout Presets:** Choose between 6 designs (`full`, `classic`, `boxes`, `dots`, `block`, `nano`).
-- 📏 **Size Scaling:** Adjust your terminal footprint dynamically (`compact`, `normal`, `large`). 
-- 🖼️ **iNiR Support:** Uses the `inir` theme to dynamically extract wallpaper colors from your environment!
-- 🚀 **Auto-Start:** Optionally launch automatically when you open a terminal (`vibefetch --enable-startup`).
-- ⚡ **Extremely Fast:** Optimized with pure bash logic. Zero dependencies, instantaneous loads.
+Pure Bash. Zero dependencies. Installs in 3 seconds.
 
 ## Installation (3 Seconds)
 
+Copy this block into your terminal:
+
 ```bash
-sudo curl -sL "https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefetch.sh?v=$RANDOM" -o /usr/local/bin/vibefetch && sudo chmod +x /usr/local/bin/vibefetch
+sudo curl -sL "https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefetch.sh" -o /usr/local/bin/vibefetch && sudo chmod +x /usr/local/bin/vibefetch
 ```
 
 ## Usage
 
 ```bash
-# Preview all layouts!
-vibefetch --preview
+vibefetch               # launch with your saved settings
+vibefetch --preview     # see every preset with your current combo
+vibefetch help          # full interactive help menu
+```
 
-# Set a tiny minimalist fetch
-vibefetch --size compact --preset nano
+## Design Options (saved automatically)
 
-# Set a massive detailed fetch 
-vibefetch --size large --preset full
+| Option | Values | Description |
+|---|---|---|
+| `-c, --color` | `inir` `ocean` `dracula` `cyberpunk` `forest` `vaporwave` | Theme colors — `inir` reads your live wallpaper palette |
+| `-p, --preset` | `classic` `full` `boxes` `block` `dots` `nano` | Layout architecture |
+| `-s, --size` | `compact` `normal` `large` | Line spacing |
 
-# Set colors to strictly match your wallpaper Engine
-vibefetch --color inir
+```bash
+vibefetch --color inir --preset boxes --size large
+```
+
+## Auto-Start
+
+```bash
+vibefetch --enable-startup    # detects bash / zsh / fish + your terminal
+vibefetch --disable-startup   # removes every hook, including legacy ones
+```
+
+## Preset Showcase
+
+```
+classic                 full                    nano
+VIBEFETCH               user@host               >> Bedrock Linux [1 day]
+OS     | Bedrock        ───────────────
+Kernel | 7.2.7          OS   Bedrock Linux
+Uptime | 1 day          ENV  foot / fish
+Memory | 6.6GB / 15.9GB SYS  7.2.7-arch1-1
+                        UP   1 day
+                        RAM  6678MB / 15897MB
 ```
 
 ## Uninstall
 
 ```bash
+vibefetch --disable-startup
 sudo rm -f /usr/local/bin/vibefetch
 ```
+
+## Config
+
+Settings live in `~/.config/vibefetch/config` (auto-created, auto-saved).
+
+## License
+
+MIT
