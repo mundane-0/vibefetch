@@ -11,3 +11,6 @@ get_os() {
 get_kernel() {
     uname -r
 }
+get_uptime() {
+    uptime -p | sed 's/up //'
+}
