@@ -6,14 +6,13 @@ Takes literally 3 seconds to install and removes all the bloat.
 ## Features
 
 - 🐧 **Bedrock Linux Support:** Accurately detects `Bedrock Linux` natively!
-- 🎨 **Colors & Presets:** Choose from 5 themes (`ocean`, `dracula`, `cyberpunk`, `forest`, `vaporwave`) and 4 beautiful layout presets (`classic`, `boxes`, `dots`, `block`).
-- 🖼️ **iNiR Support:** Uses the `inir` color theme to dynamically extract wallpaper colors from your terminal palette!
-- 🚀 **Auto-Start:** Optionally launch automatically when you open a terminal (detects `Bash`, `Zsh`, `Fish`).
-- ⚙️ **Configurable:** Settings auto-saved on the fly to `~/.config/vibefetch/config`.
+- 🎨 **Layout Presets:** Choose between 6 designs (`full`, `classic`, `boxes`, `dots`, `block`, `nano`).
+- 📏 **Size Scaling:** Adjust your terminal footprint dynamically (`compact`, `normal`, `large`). 
+- 🖼️ **iNiR Support:** Uses the `inir` theme to dynamically extract wallpaper colors from your environment!
+- 🚀 **Auto-Start:** Optionally launch automatically when you open a terminal (`vibefetch --enable-startup`).
+- ⚡ **Extremely Fast:** Optimized with pure bash logic. Zero dependencies, instantaneous loads.
 
 ## Installation (3 Seconds)
-
-Copy and paste this single block into your terminal to safely install `vibefetch` globally (cache-busting URL ensures you always get the latest version):
 
 ```bash
 sudo curl -sL "https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefetch.sh?v=$RANDOM" -o /usr/local/bin/vibefetch && sudo chmod +x /usr/local/bin/vibefetch
@@ -25,22 +24,17 @@ sudo curl -sL "https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefe
 # Preview all layouts!
 vibefetch --preview
 
-# Run normally
-vibefetch
+# Set a tiny minimalist fetch
+vibefetch --size compact --preset nano
 
-# Override layout and color on the fly (it will remember this for next time!)
-vibefetch --color inir --preset block
+# Set a massive detailed fetch 
+vibefetch --size large --preset full
 
-# Enable auto-start in your terminal (bash/zsh/fish)
-vibefetch --enable-startup
-
-# Disable auto-start
-vibefetch --disable-startup
+# Set colors to strictly match your wallpaper Engine
+vibefetch --color inir
 ```
 
-## Uninstall (3 Seconds)
-
-If you ever want to remove it:
+## Uninstall
 
 ```bash
 sudo rm -f /usr/local/bin/vibefetch
