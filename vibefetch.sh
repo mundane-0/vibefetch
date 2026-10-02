@@ -14,3 +14,6 @@ get_kernel() {
 get_uptime() {
     uptime -p | sed 's/up //'
 }
+get_memory() {
+    free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"
+}
