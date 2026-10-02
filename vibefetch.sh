@@ -29,6 +29,20 @@ preset_classic() {
     echo ""
 }
 
+preset_inline() {
+    local out=""
+    out+="${c_logo}${c_bold}VIBE${c_reset} "
+    out+="${c_prim}OS:${c_reset} ${c_sec}$(get_os)${c_reset} "
+    [ "$SHOW_KERNEL" = true ] && out+="${c_prim}KERN:${c_reset} ${c_sec}$(get_kernel)${c_reset} "
+    [ "$SHOW_UPTIME" = true ] && out+="${c_prim}UP:${c_reset} ${c_sec}$(get_uptime)${c_reset} "
+    [ "$SHOW_MEMORY" = true ] && out+="${c_prim}MEM:${c_reset} ${c_sec}$(get_memory)${c_reset} "
+    echo -e "\n  $out\n"
+}
+
+preset_minimal() {
+    echo -e "\n  ${c_sec}$(get_os)${c_reset}  ${c_prim}$(get_kernel)${c_reset}  ${c_logo}$(get_uptime)${c_reset}\n"
+}
+
 load_config() {
     CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
     CONFIG_FILE="$CONFIG_DIR/config"
@@ -37,21 +51,16 @@ load_config() {
     SHOW_KERNEL=true
     SHOW_UPTIME=true
     SHOW_MEMORY=true
-    if [ -f "$CONFIG_FILE" ]; then
-        source "$CONFIG_FILE"
-    else
-        mkdir -p "$CONFIG_DIR"
-        echo 'COLOR="ocean"' > "$CONFIG_FILE"
-        echo 'PRESET="classic"' >> "$CONFIG_FILE"
-        echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
-        echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
-        echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
-    fi
+    if [ -f "$CONFIG_FILE" ]; then source "$CONFIG_FILE"; fi
 }
 
 print_info() {
     load_color "$COLOR"
-    preset_classic
+    case "$PRESET" in
+        inline) preset_inline ;;
+        minimal) preset_minimal ;;
+        classic|*) preset_classic ;;
+    esac
 }
 
 load_config
