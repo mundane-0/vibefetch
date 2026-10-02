@@ -29,18 +29,21 @@ preset_classic() {
     echo ""
 }
 
-preset_inline() {
-    local out=""
-    out+="${c_logo}${c_bold}VIBE${c_reset} "
-    out+="${c_prim}OS:${c_reset} ${c_sec}$(get_os)${c_reset} "
-    [ "$SHOW_KERNEL" = true ] && out+="${c_prim}KERN:${c_reset} ${c_sec}$(get_kernel)${c_reset} "
-    [ "$SHOW_UPTIME" = true ] && out+="${c_prim}UP:${c_reset} ${c_sec}$(get_uptime)${c_reset} "
-    [ "$SHOW_MEMORY" = true ] && out+="${c_prim}MEM:${c_reset} ${c_sec}$(get_memory)${c_reset} "
-    echo -e "\n  $out\n"
+preset_boxes() {
+    echo -e "\n${c_logo} ╭─── ${c_bold}VIBEFETCH${c_reset}"
+    echo -e "${c_logo} │ ${c_prim}OS:${c_reset} ${c_sec}$(get_os)${c_reset}"
+    [ "$SHOW_KERNEL" = true ] && echo -e "${c_logo} │ ${c_prim}Kernel:${c_reset} ${c_sec}$(get_kernel)${c_reset}"
+    [ "$SHOW_UPTIME" = true ] && echo -e "${c_logo} │ ${c_prim}Uptime:${c_reset} ${c_sec}$(get_uptime)${c_reset}"
+    [ "$SHOW_MEMORY" = true ] && echo -e "${c_logo} │ ${c_prim}Memory:${c_reset} ${c_sec}$(get_memory)${c_reset}"
+    echo -e "${c_logo} ╰───────────────── ${c_reset}\n"
 }
 
-preset_minimal() {
-    echo -e "\n  ${c_sec}$(get_os)${c_reset}  ${c_prim}$(get_kernel)${c_reset}  ${c_logo}$(get_uptime)${c_reset}\n"
+preset_dots() {
+    echo -e "\n  ${c_logo}•${c_prim} $(get_os)${c_reset}"
+    [ "$SHOW_KERNEL" = true ] && echo -e "  ${c_logo}•${c_prim} $(get_kernel)${c_reset}"
+    [ "$SHOW_UPTIME" = true ] && echo -e "  ${c_logo}•${c_prim} $(get_uptime)${c_reset}"
+    [ "$SHOW_MEMORY" = true ] && echo -e "  ${c_logo}•${c_prim} $(get_memory)${c_reset}"
+    echo ""
 }
 
 preset_block() {
@@ -65,7 +68,7 @@ load_config() {
     else
         mkdir -p "$CONFIG_DIR"
         echo 'COLOR="ocean"   # ocean, dracula, cyberpunk, forest, vaporwave' > "$CONFIG_FILE"
-        echo 'PRESET="classic" # classic, inline, minimal, block' >> "$CONFIG_FILE"
+        echo 'PRESET="classic" # classic, block, boxes, dots' >> "$CONFIG_FILE"
         echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
         echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
         echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
@@ -75,15 +78,15 @@ load_config() {
 print_info() {
     load_color "$COLOR"
     case "$PRESET" in
-        inline) preset_inline ;;
-        minimal) preset_minimal ;;
+        boxes) preset_boxes ;;
+        dots) preset_dots ;;
         block) preset_block ;;
         classic|*) preset_classic ;;
     esac
 }
 
 preview() {
-    for p in classic inline minimal block; do
+    for p in classic block boxes dots; do
         PRESET="$p"
         echo -e "--- Previewing PRESET: \e[1m$p\e[0m (Color: $COLOR) ---"
         print_info
