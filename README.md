@@ -7,14 +7,14 @@ Takes literally 3 seconds to install and removes all the bloat.
 
 - 🐧 **Bedrock Linux Support:** Accurately detects `Bedrock Linux` natively!
 - 🎨 **Colors & Presets:** Choose from 5 colors (`ocean`, `dracula`, `cyberpunk`, `forest`, `vaporwave`) and 4 beautiful layout presets (`classic`, `boxes`, `dots`, `block`).
-- ⚙️ **Configurable:** Settings auto-generated at `~/.config/vibefetch/config`.
+- ⚙️ **Configurable:** Settings auto-saved on the fly to `~/.config/vibefetch/config`.
 
 ## Installation (3 Seconds)
 
-Copy and paste this single block into your terminal to safely install `vibefetch` globally:
+Copy and paste this single block into your terminal to safely install `vibefetch` globally (cache-busting URL ensures you always get the latest version):
 
 ```bash
-sudo curl -sL https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefetch.sh -o /usr/local/bin/vibefetch && sudo chmod +x /usr/local/bin/vibefetch
+sudo curl -sL "https://raw.githubusercontent.com/mundane-0/vibefetch/main/vibefetch.sh?v=$RANDOM" -o /usr/local/bin/vibefetch && sudo chmod +x /usr/local/bin/vibefetch
 ```
 
 ## Usage
@@ -26,7 +26,7 @@ vibefetch --preview
 # Run normally
 vibefetch
 
-# Override layout and color on the fly
+# Override layout and color on the fly (it will remember this for next time!)
 vibefetch --color dracula --preset boxes
 ```
 
