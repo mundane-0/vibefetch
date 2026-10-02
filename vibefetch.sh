@@ -43,6 +43,14 @@ preset_minimal() {
     echo -e "\n  ${c_sec}$(get_os)${c_reset}  ${c_prim}$(get_kernel)${c_reset}  ${c_logo}$(get_uptime)${c_reset}\n"
 }
 
+preset_block() {
+    echo -e "\n${c_logo}${c_bold}  ██  ${c_sec}$(get_os)${c_reset}"
+    [ "$SHOW_KERNEL" = true ] && echo -e "${c_logo}${c_bold}  ██  ${c_prim}$(get_kernel)${c_reset}"
+    [ "$SHOW_UPTIME" = true ] && echo -e "${c_logo}${c_bold}  ██  ${c_prim}$(get_uptime)${c_reset}"
+    [ "$SHOW_MEMORY" = true ] && echo -e "${c_logo}${c_bold}  ██  ${c_sec}$(get_memory)${c_reset}"
+    echo ""
+}
+
 load_config() {
     CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
     CONFIG_FILE="$CONFIG_DIR/config"
@@ -59,6 +67,7 @@ print_info() {
     case "$PRESET" in
         inline) preset_inline ;;
         minimal) preset_minimal ;;
+        block) preset_block ;;
         classic|*) preset_classic ;;
     esac
 }
