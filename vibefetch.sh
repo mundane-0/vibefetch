@@ -295,12 +295,40 @@ manage_startup() {
         # Purge every legacy block first to avoid duplicates from old versions
         remove_all_hooks "$rc_file"
         touch "$rc_file"
-        printf '\n%s\nvibefetch 2>/dev/null || true\n%s\n' "$h_start" "$h_end" >> "$rc_file"
+        # Guarded + shell-specific: silently no-ops if the binary is ever removed,
+        # so an uninstall never breaks terminal startup.
+        local hook_cmd
+        if [ "$shell_name" = "fish" ]; then
+            hook_cmd='if command -v vibefetch >/dev/null 2>&1; vibefetch; end'
+        else
+            hook_cmd='command -v vibefetch >/dev/null 2>&1 && vibefetch'
+        fi
+        printf '\n%s\n%s\n%s\n' "$h_start" "$hook_cmd" "$h_end" >> "$rc_file"
         echo "✨ Auto-start enabled. Restart $term (or open a new tab) to test."
     else
         remove_all_hooks "$rc_file"
         echo "🗑️  Auto-start disabled (all legacy hooks purged)."
     fi
+    exit 0
+}
+
+manage_uninstall() {
+    local shell_name rc_file
+    shell_name=$(detect_shell)
+    rc_file=$(get_rc_file "$shell_name")
+    remove_all_hooks "$rc_file"
+    echo "🗑️  Startup hook removed from $rc_file"
+    local self
+    self=$(command -v vibefetch 2>/dev/null)
+    if [ -n "$self" ]; then
+        if [ -w "$self" ]; then
+            rm -f "$self" && echo "🗑️  Binary removed: $self"
+        else
+            rm -f "$self" 2>/dev/null && echo "🗑️  Binary removed: $self" \
+                || { echo "🔐 Need sudo to remove $self — run:"; echo "   sudo rm -f $self"; }
+        fi
+    fi
+    echo "✨ Vibefetch fully uninstalled."
     exit 0
 }
 
@@ -327,6 +355,7 @@ show_help() {
     printf "    %b--preview%b            Show every preset with your current combo\n" "${c_sec}" "${c_reset}"
     printf "    %b--enable-startup%b     Auto-launch on terminal open (bash/zsh/fish)\n" "${c_sec}" "${c_reset}"
     printf "    %b--disable-startup%b    Remove auto-launch (purges legacy hooks too)\n" "${c_sec}" "${c_reset}"
+    printf "    %b--uninstall%b         Remove hook + binary in one command\n" "${c_sec}" "${c_reset}"
     printf "    %b--detect-env%b         Show detected shell and terminal\n" "${c_sec}" "${c_reset}"
     printf "    %b-h, help, --help%b     Show this menu\n" "${c_sec}" "${c_reset}"
     printf "\n"
@@ -379,6 +408,7 @@ while [ "$#" -gt 0 ]; do
     case $1 in
         --enable-startup)  manage_startup "enable" ;;
         --disable-startup) manage_startup "disable" ;;
+        --uninstall)       manage_uninstall ;;
         --detect-env)      printf 'Shell: %s | Terminal: %s\n' "$(detect_shell)" "$(detect_terminal)"; exit 0 ;;
         -s|--size)         need_arg "$1" "$2"; SIZE="$2"; CONFIG_CHANGED=true ;;
         -c|--color)        need_arg "$1" "$2"; COLOR="$2"; CONFIG_CHANGED=true ;;
