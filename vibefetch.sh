@@ -28,9 +28,10 @@ detect_inir_colors() {
     if [ -n "$color_file" ] && [ -f "$color_file" ]; then
         if [[ "$color_file" == *".json" ]]; then
             if ! command -v jq >/dev/null 2>&1; then return 1; fi
-            local c_p=$(jq -r '.primary // empty' "$color_file" | tr -d '\r\n#')
-            local c_s=$(jq -r '.secondary // empty' "$color_file" | tr -d '\r\n#')
-            local c_l=$(jq -r '.tertiary // empty' "$color_file" | tr -d '\r\n#')
+            local c_p c_s c_l
+            c_p=$(jq -r '.primary // empty' "$color_file" | tr -d '\r\n#')
+            c_s=$(jq -r '.secondary // empty' "$color_file" | tr -d '\r\n#')
+            c_l=$(jq -r '.tertiary // empty' "$color_file" | tr -d '\r\n#')
             if [ -n "$c_p" ]; then
                 c_prim="\e[38;2;$((16#${c_p:0:2}));$((16#${c_p:2:2}));$((16#${c_p:4:2}))m"
                 c_sec="\e[38;2;$((16#${c_s:0:2}));$((16#${c_s:2:2}));$((16#${c_s:4:2}))m"
@@ -38,7 +39,8 @@ detect_inir_colors() {
                 return 0
             fi
         else
-            local colors=($(head -6 "$color_file" | tr -d '\r\n#'))
+            local colors
+            colors=($(head -6 "$color_file" | tr -d '\r\n#'))
             if [ ${#colors[@]} -ge 3 ]; then
                 c_prim="\e[38;2;$((16#${colors[0]:0:2}));$((16#${colors[0]:2:2}));$((16#${colors[0]:4:2}))m"
                 c_sec="\e[38;2;$((16#${colors[1]:0:2}));$((16#${colors[1]:2:2}));$((16#${colors[1]:4:2}))m"
@@ -62,7 +64,7 @@ load_color() {
     c_reset="\e[0m"; c_bold="\e[1m"
 }
 
-# --- LAYOUTS CORE BUILDER ---
+# --- LAYOUT ENGINE ---
 sp() {
     if [ "$SIZE" = "compact" ]; then
         printf "%b\n" "$1"
@@ -151,7 +153,6 @@ preset_full() {
     out="${out}${c_prim}  OS   ${c_reset} $(get_os)\n"
     if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
     out="${out}${c_prim}  ENV  ${c_reset} $(get_env)\n"
-    
     if [ "$SHOW_KERNEL" = "true" ]; then
         if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
         out="${out}${c_prim}  SYS  ${c_reset} $(get_kernel)\n"
@@ -172,7 +173,7 @@ preset_nano() {
     sp "$out"
 }
 
-# --- CONFIG & STARTUP ---
+# --- CONFIG ---
 load_config() {
     CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
     CONFIG_FILE="$CONFIG_DIR/config"
@@ -185,89 +186,152 @@ load_config() {
     INIR_COLOR_PATH=""
 
     if [ -f "$CONFIG_FILE" ]; then
+        # shellcheck disable=SC1090
         source "$CONFIG_FILE"
+        # Sanitize potentially corrupted config values
+        case "$SIZE" in compact|normal|large) ;; *) SIZE="normal" ;; esac
+        case "$PRESET" in classic|boxes|dots|block|full|nano) ;; *) PRESET="classic" ;; esac
+        case "$COLOR" in inir|ocean|dracula|cyberpunk|forest|vaporwave) ;; *) COLOR="ocean" ;; esac
     else
         mkdir -p "$CONFIG_DIR"
-        echo 'COLOR="ocean"' > "$CONFIG_FILE"
-        echo 'PRESET="classic"' >> "$CONFIG_FILE"
-        echo 'SIZE="normal"' >> "$CONFIG_FILE"
-        echo 'SHOW_KERNEL="true"' >> "$CONFIG_FILE"
-        echo 'SHOW_UPTIME="true"' >> "$CONFIG_FILE"
-        echo 'SHOW_MEMORY="true"' >> "$CONFIG_FILE"
-        echo 'INIR_COLOR_PATH=""' >> "$CONFIG_FILE"
+        printf 'COLOR="ocean"\nPRESET="classic"\nSIZE="normal"\nSHOW_KERNEL="true"\nSHOW_UPTIME="true"\nSHOW_MEMORY="true"\nINIR_COLOR_PATH=""\n' > "$CONFIG_FILE"
     fi
 }
 
 save_config() {
     mkdir -p "$CONFIG_DIR"
-    echo 'COLOR="'"$COLOR"'"' > "$CONFIG_FILE"
-    echo 'PRESET="'"$PRESET"'"' >> "$CONFIG_FILE"
-    echo 'SIZE="'"$SIZE"'"' >> "$CONFIG_FILE"
-    echo 'SHOW_KERNEL="'"$SHOW_KERNEL"'"' >> "$CONFIG_FILE"
-    echo 'SHOW_UPTIME="'"$SHOW_UPTIME"'"' >> "$CONFIG_FILE"
-    echo 'SHOW_MEMORY="'"$SHOW_MEMORY"'"' >> "$CONFIG_FILE"
-    echo 'INIR_COLOR_PATH="'"$INIR_COLOR_PATH"'"' >> "$CONFIG_FILE"
+    printf 'COLOR="%s"\nPRESET="%s"\nSIZE="%s"\nSHOW_KERNEL="%s"\nSHOW_UPTIME="%s"\nSHOW_MEMORY="%s"\nINIR_COLOR_PATH="%s"\n' \
+        "$COLOR" "$PRESET" "$SIZE" "$SHOW_KERNEL" "$SHOW_UPTIME" "$SHOW_MEMORY" "$INIR_COLOR_PATH" > "$CONFIG_FILE"
 }
 
+# --- STARTUP MANAGEMENT ---
+# All historical marker pairs (newest first). Disable purges EVERY legacy block
+# so upgrades from old versions never leave orphans in the rc file.
+MARKERS=(
+    "# --- VIBEFETCH AUTO-START ---|# --- VIBEFETCH AUTO-START END ---"
+    "# --- VIBEFETCH START ---|# --- VIBEFETCH END ---"
+)
+
 detect_shell() {
-    local pid=$$; for _ in 1 2 3; do
+    # The rc file belongs to the login shell ($SHELL) — trust it first
+    local login_shell
+    login_shell=$(basename "${SHELL:-bash}")
+    case "$login_shell" in
+        fish|zsh|bash) echo "$login_shell"; return ;;
+    esac
+    # Fallback: walk the process tree
+    local pid=$$
+    local i comm
+    for i in 1 2 3; do
         pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
         [ -z "$pid" ] || [ "$pid" = "1" ] && break
-        local comm=$(ps -o comm= -p "$pid" 2>/dev/null)
-        case "$comm" in fish|zsh|bash) echo "$comm"; return ;; esac
+        comm=$(ps -o comm= -p "$pid" 2>/dev/null)
+        case "$comm" in
+            fish|zsh|bash) echo "$comm"; return ;;
+        esac
     done
-    basename "${SHELL:-bash}"
+    echo "bash"
+}
+
+detect_terminal() {
+    if [ -n "$KITTY_WINDOW_ID" ]; then echo "kitty"; return; fi
+    if [ -n "$ALACRITTY_WINDOW_ID" ]; then echo "alacritty"; return; fi
+    if [ -n "$WEZTERM_EXECUTABLE" ]; then echo "wezterm"; return; fi
+    if [ -n "$KONSOLE_VERSION" ]; then echo "konsole"; return; fi
+    if [ -n "$GNOME_TERMINAL_SCREEN" ]; then echo "gnome-terminal"; return; fi
+    if [ "$TERM_PROGRAM" = "vscode" ]; then echo "vscode"; return; fi
+    case "$TERM" in foot|foot-direct) echo "foot"; return ;; esac
+    echo "unknown"
+}
+
+get_rc_file() {
+    case "$1" in
+        fish)
+            local f="$HOME/.config/fish/config.fish"
+            mkdir -p "$(dirname "$f")"
+            echo "$f" ;;
+        zsh) echo "$HOME/.zshrc" ;;
+        bash|*)
+            if [ -f "$HOME/.bash_profile" ] && [ ! -f "$HOME/.bashrc" ]; then
+                echo "$HOME/.bash_profile"
+            else
+                echo "$HOME/.bashrc"
+            fi ;;
+    esac
+}
+
+remove_all_hooks() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    local pair start end
+    for pair in "${MARKERS[@]}"; do
+        start="${pair%%|*}"
+        end="${pair##*|}"
+        if grep -qF "$start" "$file" 2>/dev/null; then
+            if command -v perl >/dev/null 2>&1; then
+                perl -i -0pe "s/\n*\Q$start\E.*?\Q$end\E\n*//s" "$file"
+            else
+                sed -i.bak "/\Q$start\E/,/\Q$end\E/d" "$file" 2>/dev/null || sed -i.bak "/$start/,/$end/d" "$file"
+                rm -f "${file}.bak"
+            fi
+        fi
+    done
 }
 
 manage_startup() {
-    local action="$1"; local shell_name=$(detect_shell)
-    local rc_file="$HOME/.bashrc"
-    case "$shell_name" in
-        fish) rc_file="$HOME/.config/fish/config.fish"; mkdir -p "$(dirname "$rc_file")" ;;
-        zsh)  rc_file="$HOME/.zshrc" ;;
-        bash|*) [ -f "$HOME/.bash_profile" ] && [ ! -f "$HOME/.bashrc" ] && rc_file="$HOME/.bash_profile" ;;
-    esac
+    local action="$1"
+    local shell_name rc_file term
+    shell_name=$(detect_shell)
+    rc_file=$(get_rc_file "$shell_name")
+    term=$(detect_terminal)
 
-    local h_start="# --- VIBEFETCH START ---"; local h_end="# --- VIBEFETCH START END ---"
-    
+    local h_start="# --- VIBEFETCH AUTO-START ---"
+    local h_end="# --- VIBEFETCH AUTO-START END ---"
+
+    printf 'Detected shell    : %s\nDetected terminal : %s\nConfig file       : %s\n' \
+        "$shell_name" "$term" "$rc_file"
+
     if [ "$action" = "enable" ]; then
-        if grep -q "$h_start" "$rc_file" 2>/dev/null; then echo "✅ Already enabled in $rc_file"
-        else
-            printf '\n%s\nvibefetch 2>/dev/null || true\n%s\n' "$h_start" "$h_end" >> "$rc_file"
-            echo "✨ Auto-start enabled in $rc_file"
-        fi
-    elif [ "$action" = "disable" ]; then
-        if command -v perl >/dev/null 2>&1; then perl -i -0pe "s/\n*\Q$h_start\E.*?\Q$h_end\E\n*//s" "$rc_file"
-        else sed -i.bak "/$h_start/,/$h_end/d" "$rc_file" && rm -f "${rc_file}.bak"; fi
-        echo "🗑️  Auto-start disabled from $rc_file"
+        # Purge every legacy block first to avoid duplicates from old versions
+        remove_all_hooks "$rc_file"
+        touch "$rc_file"
+        printf '\n%s\nvibefetch 2>/dev/null || true\n%s\n' "$h_start" "$h_end" >> "$rc_file"
+        echo "✨ Auto-start enabled. Restart $term (or open a new tab) to test."
+    else
+        remove_all_hooks "$rc_file"
+        echo "🗑️  Auto-start disabled (all legacy hooks purged)."
     fi
     exit 0
 }
 
+# --- HELP ---
 show_help() {
-    load_color "$COLOR" # Ensure colors are setup for the beautiful help menu
-    
+    load_color "${COLOR:-ocean}"
     printf "\n"
-    printf "${c_logo}${c_bold}  🌊 VIBEFETCH ${c_reset} - Minimalist Linux Sysfetch\n"
+    printf "%b  🌊 VIBEFETCH %b - Minimalist Linux Sysfetch\n" "${c_logo}${c_bold}" "${c_reset}"
     printf "\n"
-    printf "${c_prim}  USAGE:${c_reset}\n"
+    printf "%b  USAGE:%b\n" "${c_prim}" "${c_reset}"
     printf "    vibefetch [OPTIONS]\n"
     printf "\n"
-    printf "${c_prim}  OPTIONS (Design):${c_reset}\n"
-    printf "    ${c_sec}-c, --color <name>${c_reset}     Set aesthetic theme color\n"
-    printf "                           (inir, ocean, dracula, cyberpunk, forest, vaporwave)\n"
-    printf "    ${c_sec}-p, --preset <name>${c_reset}    Set visual layout architecture\n"
-    printf "                           (classic, full, block, boxes, dots, nano)\n"
-    printf "    ${c_sec}-s, --size <name>${c_reset}      Set padding and line spacing\n"
-    printf "                           (compact, normal, large)\n"
+    printf "%b  OPTIONS (Design):%b\n" "${c_prim}" "${c_reset}"
+    printf "    %b-c, --color <name>%b   Set theme colors and save it\n" "${c_sec}" "${c_reset}"
+    printf "                           inir (auto from your wallpaper), ocean,\n"
+    printf "                           dracula, cyberpunk, forest, vaporwave\n"
+    printf "    %b-p, --preset <name>%b  Set the layout architecture and save it\n" "${c_sec}" "${c_reset}"
+    printf "                           classic, full (detailed), boxes,\n"
+    printf "                           block, dots, nano (1-liner)\n"
+    printf "    %b-s, --size <name>%b    Set line spacing and save it\n" "${c_sec}" "${c_reset}"
+    printf "                           compact, normal, large\n"
     printf "\n"
-    printf "${c_prim}  OPTIONS (Functional):${c_reset}\n"
-    printf "    ${c_sec}--preview${c_reset}              Show all presets with the current color and size combo\n"
-    printf "    ${c_sec}--enable-startup${c_reset}       Add to your shell initialization script to start on open\n"
-    printf "    ${c_sec}--disable-startup${c_reset}      Safely remove from auto-start without breaking anything\n"
-    printf "    ${c_sec}-h, help, --help${c_reset}       Show this beautiful help menu\n"
+    printf "%b  OPTIONS (Functional):%b\n" "${c_prim}" "${c_reset}"
+    printf "    %b--preview%b            Show every preset with your current combo\n" "${c_sec}" "${c_reset}"
+    printf "    %b--enable-startup%b     Auto-launch on terminal open (bash/zsh/fish)\n" "${c_sec}" "${c_reset}"
+    printf "    %b--disable-startup%b    Remove auto-launch (purges legacy hooks too)\n" "${c_sec}" "${c_reset}"
+    printf "    %b--detect-env%b         Show detected shell and terminal\n" "${c_sec}" "${c_reset}"
+    printf "    %b-h, help, --help%b     Show this menu\n" "${c_sec}" "${c_reset}"
     printf "\n"
-    printf "${c_logo}  Tinkered with ♥ from Bedrock Linux.${c_reset}\n\n"
+    printf "%b  Config lives in ~/.config/vibefetch/config%b\n" "${c_logo}" "${c_reset}"
+    printf "%b  Every option above is saved automatically.%b\n\n" "${c_logo}" "${c_reset}"
 }
 
 print_info() {
@@ -275,7 +339,7 @@ print_info() {
     case "$PRESET" in
         boxes) preset_boxes ;;
         dots) preset_dots ;;
-        block) preset_block ;;
+       block) preset_block ;;
         full) preset_full ;;
         nano) preset_nano ;;
         classic|*) preset_classic ;;
@@ -283,39 +347,54 @@ print_info() {
 }
 
 preview() {
-    for p in classic block boxes dots full nano; do
+    local p
+    for p in classic full boxes block dots nano; do
         PRESET="$p"
-        printf "--- Previewing PRESET: \033[1m%s\033[0m (Size: %s, Color: %s) ---\n" "$p" "$SIZE" "$COLOR"
+        printf -- '--- Previewing PRESET: \033[1m%s\033[0m (Size: %s, Color: %s) ---\n' "$p" "$SIZE" "$COLOR"
         print_info
     done
     exit 0
 }
 
+# --- MAIN ---
+need_arg() {
+    if [ -z "$2" ] || [ "${2#-}" != "$2" ]; then
+        echo "Error: $1 requires a value." >&2
+        show_help
+        exit 1
+    fi
+}
+
 load_config
 CONFIG_CHANGED=false
 
-# Handle 0-arg fast path or parse loops
 if [ "$#" -eq 1 ]; then
-    if [ "$1" = "help" ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
-        show_help; exit 0
-    elif [ "$1" = "--preview" ]; then
-        preview; exit 0
-    fi
+    case "$1" in
+        help|-h|--help) show_help; exit 0 ;;
+        --preview) preview ;;
+    esac
 fi
 
-while [[ "$#" -gt 0 ]]; do
+while [ "$#" -gt 0 ]; do
     case $1 in
         --enable-startup)  manage_startup "enable" ;;
         --disable-startup) manage_startup "disable" ;;
-        -s|--size)         SIZE="$2"; CONFIG_CHANGED=true; shift ;;
-        -c|--color)        COLOR="$2"; CONFIG_CHANGED=true; shift ;;
-        -p|--preset)       PRESET="$2"; CONFIG_CHANGED=true; shift ;;
+        --detect-env)      printf 'Shell: %s | Terminal: %s\n' "$(detect_shell)" "$(detect_terminal)"; exit 0 ;;
+        -s|--size)         need_arg "$1" "$2"; SIZE="$2"; CONFIG_CHANGED=true ;;
+        -c|--color)        need_arg "$1" "$2"; COLOR="$2"; CONFIG_CHANGED=true ;;
+        -p|--preset)       need_arg "$1" "$2"; PRESET="$2"; CONFIG_CHANGED=true ;;
         --preview)         preview ;;
         help|-h|--help)    show_help; exit 0 ;;
-        *)                 echo "Unknown option: $1"; show_help; exit 1 ;;
+        *)                 echo "Unknown option: $1" >&2; show_help; exit 1 ;;
     esac
-    shift
+    shift 2 2>/dev/null || shift
 done
 
-[ "$CONFIG_CHANGED" = true ] && save_config
+if [ "$CONFIG_CHANGED" = true ]; then
+    case "$SIZE" in compact|normal|large) ;; *) echo "Error: invalid size '$SIZE' (compact|normal|large)" >&2; exit 1 ;; esac
+    case "$PRESET" in classic|boxes|dots|block|full|nano) ;; *) echo "Error: invalid preset '$PRESET' (classic|boxes|dots|block|full|nano)" >&2; exit 1 ;; esac
+    case "$COLOR" in inir|ocean|dracula|cyberpunk|forest|vaporwave) ;; *) echo "Error: invalid color '$COLOR'" >&2; exit 1 ;; esac
+    save_config
+fi
+
 print_info
