@@ -3,14 +3,14 @@
 # --- FAST SYSTEM DETECTORS ---
 get_os() {
     if [ -d /bedrock ]; then echo "Bedrock Linux"
-    elif [ -f /etc/os-release ]; then . /etc/os-release; echo "$PRETTY_NAME"
+    elif [ -f /etc/os-release ]; then . /etc/os-release; echo "$PRETTY_NAME" | tr -d '\r\n'
     else uname -s; fi
 }
-get_kernel() { uname -r; }
-get_uptime() { uptime -p | sed 's/up //'; }
+get_kernel() { uname -r | tr -d '\r\n'; }
+get_uptime() { uptime -p | sed 's/up //' | tr -d '\r\n'; }
 get_memory() { free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"; }
-get_host()   { echo "${USER:-user}@${HOSTNAME:-host}"; }
-get_env()    { echo "${XDG_CURRENT_DESKTOP:-tty} / $(basename "${SHELL:-sh}")"; }
+get_host()   { echo "${USER:-user}@${HOSTNAME:-host}" | tr -d '\r\n'; }
+get_env()    { echo "${XDG_CURRENT_DESKTOP:-tty} / $(basename "${SHELL:-sh}")" | tr -d '\r\n'; }
 
 # --- COLOR SYSTEM ---
 detect_inir_colors() {
@@ -28,9 +28,10 @@ detect_inir_colors() {
     if [ -n "$color_file" ] && [ -f "$color_file" ]; then
         if [[ "$color_file" == *".json" ]]; then
             if ! command -v jq >/dev/null 2>&1; then return 1; fi
-            local c_p=$(jq -r '.primary // empty' "$color_file" | tr -d '#')
-            local c_s=$(jq -r '.secondary // empty' "$color_file" | tr -d '#')
-            local c_l=$(jq -r '.tertiary // empty' "$color_file" | tr -d '#')
+            # Ensure we strip ALL newlines/carriage returns from jq output
+            local c_p=$(jq -r '.primary // empty' "$color_file" | tr -d '\r\n#')
+            local c_s=$(jq -r '.secondary // empty' "$color_file" | tr -d '\r\n#')
+            local c_l=$(jq -r '.tertiary // empty' "$color_file" | tr -d '\r\n#')
             if [ -n "$c_p" ]; then
                 c_prim="\e[38;2;$((16#${c_p:0:2}));$((16#${c_p:2:2}));$((16#${c_p:4:2}))m"
                 c_sec="\e[38;2;$((16#${c_s:0:2}));$((16#${c_s:2:2}));$((16#${c_s:4:2}))m"
@@ -38,7 +39,7 @@ detect_inir_colors() {
                 return 0
             fi
         else
-            local colors=($(head -6 "$color_file" | tr -d '#'))
+            local colors=($(head -6 "$color_file" | tr -d '\r\n#'))
             if [ ${#colors[@]} -ge 3 ]; then
                 c_prim="\e[38;2;$((16#${colors[0]:0:2}));$((16#${colors[0]:2:2}));$((16#${colors[0]:4:2}))m"
                 c_sec="\e[38;2;$((16#${colors[1]:0:2}));$((16#${colors[1]:2:2}));$((16#${colors[1]:4:2}))m"
@@ -62,77 +63,110 @@ load_color() {
     c_reset="\e[0m"; c_bold="\e[1m"
 }
 
-# --- LAYOUTS ---
+# --- LAYOUTS CORE BUILDER ---
+# Rewritten completely to avoid bash syntax bugs like silent aborts or broken appends
 sp() {
     if [ "$SIZE" = "compact" ]; then
-        echo -e  "$1"
+        printf "%b\n" "$1"
     else
-        echo -e  "\n$1\n"
+        printf "\n%b\n\n" "$1"
     fi
 }
 
 preset_classic() {
     local out="${c_logo}${c_bold}  VIBEFETCH ${c_reset}\n"
-    [ "$SIZE" = "large" ] && out+="\n"
-    out+="${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_KERNEL" = true ] && out+="\n"
-    [ "$SHOW_KERNEL" = true ] && out+="${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_UPTIME" = true ] && out+="\n"
-    [ "$SHOW_UPTIME" = true ] && out+="${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_MEMORY" = true ] && out+="\n"
-    [ "$SHOW_MEMORY" = true ] && out+="${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
+    if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+    out="${out}${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}\n"
+    if [ "$SHOW_KERNEL" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}\n"
+    fi
+    if [ "$SHOW_UPTIME" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}\n"
+    fi
+    if [ "$SHOW_MEMORY" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
+    fi
+    # Trim pending newline for single continuous print
     sp "$out"
 }
 
 preset_boxes() {
     local out="${c_logo} ╭─── ${c_bold}VIBEFETCH${c_reset}\n"
-    [ "$SIZE" = "large" ] && out+="${c_logo} │ \n"
-    out+="${c_logo} │ ${c_prim}OS:${c_reset} ${c_sec}$(get_os)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_KERNEL" = true ] && out+="${c_logo} │ \n"
-    [ "$SHOW_KERNEL" = true ] && out+="${c_logo} │ ${c_prim}Kernel:${c_reset} ${c_sec}$(get_kernel)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_UPTIME" = true ] && out+="${c_logo} │ \n"
-    [ "$SHOW_UPTIME" = true ] && out+="${c_logo} │ ${c_prim}Uptime:${c_reset} ${c_sec}$(get_uptime)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_MEMORY" = true ] && out+="${c_logo} │ \n"
-    [ "$SHOW_MEMORY" = true ] && out+="${c_logo} │ ${c_prim}Memory:${c_reset} ${c_sec}$(get_memory)${c_reset}\n"
-    [ "$SIZE" = "large" ] && out+="${c_logo} │ \n"
-    out+="${c_logo} ╰───────────────── ${c_reset}"
+    if [ "$SIZE" = "large" ]; then out="${out}${c_logo} │ ${c_reset}\n"; fi
+    out="${out}${c_logo} │ ${c_prim}OS:${c_reset} ${c_sec}$(get_os)${c_reset}\n"
+    if [ "$SHOW_KERNEL" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}${c_logo} │ ${c_reset}\n"; fi
+        out="${out}${c_logo} │ ${c_prim}Kernel:${c_reset} ${c_sec}$(get_kernel)${c_reset}\n"
+    fi
+    if [ "$SHOW_UPTIME" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}${c_logo} │ ${c_reset}\n"; fi
+        out="${out}${c_logo} │ ${c_prim}Uptime:${c_reset} ${c_sec}$(get_uptime)${c_reset}\n"
+    fi
+    if [ "$SHOW_MEMORY" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}${c_logo} │ ${c_reset}\n"; fi
+        out="${out}${c_logo} │ ${c_prim}Memory:${c_reset} ${c_sec}$(get_memory)${c_reset}\n"
+    fi
+    if [ "$SIZE" = "large" ]; then out="${out}${c_logo} │ ${c_reset}\n"; fi
+    out="${out}${c_logo} ╰───────────────── ${c_reset}"
     sp "$out"
 }
 
 preset_dots() {
     local out="  ${c_logo}•${c_prim} $(get_os)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_KERNEL" = true ] && out+="\n"
-    [ "$SHOW_KERNEL" = true ] && out+="  ${c_logo}•${c_prim} $(get_kernel)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_UPTIME" = true ] && out+="\n"
-    [ "$SHOW_UPTIME" = true ] && out+="  ${c_logo}•${c_prim} $(get_uptime)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_MEMORY" = true ] && out+="\n"
-    [ "$SHOW_MEMORY" = true ] && out+="  ${c_logo}•${c_prim} $(get_memory)${c_reset}"
+    if [ "$SHOW_KERNEL" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}  ${c_logo}•${c_prim} $(get_kernel)${c_reset}\n"
+    fi
+    if [ "$SHOW_UPTIME" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}  ${c_logo}•${c_prim} $(get_uptime)${c_reset}\n"
+    fi
+    if [ "$SHOW_MEMORY" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}  ${c_logo}•${c_prim} $(get_memory)${c_reset}"
+    fi
     sp "$out"
 }
 
 preset_block() {
     local out="${c_logo}${c_bold}  ██  ${c_sec}$(get_os)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_KERNEL" = true ] && out+="\n"
-    [ "$SHOW_KERNEL" = true ] && out+="${c_logo}${c_bold}  ██  ${c_prim}$(get_kernel)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_UPTIME" = true ] && out+="\n"
-    [ "$SHOW_UPTIME" = true ] && out+="${c_logo}${c_bold}  ██  ${c_prim}$(get_uptime)${c_reset}\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_MEMORY" = true ] && out+="\n"
-    [ "$SHOW_MEMORY" = true ] && out+="${c_logo}${c_bold}  ██  ${c_sec}$(get_memory)${c_reset}"
+    if [ "$SHOW_KERNEL" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_logo}${c_bold}  ██  ${c_prim}$(get_kernel)${c_reset}\n"
+    fi
+    if [ "$SHOW_UPTIME" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_logo}${c_bold}  ██  ${c_prim}$(get_uptime)${c_reset}\n"
+    fi
+    if [ "$SHOW_MEMORY" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_logo}${c_bold}  ██  ${c_sec}$(get_memory)${c_reset}"
+    fi
     sp "$out"
 }
 
 preset_full() {
     local out="${c_logo}${c_bold}  $(get_host) ${c_reset}\n  ${c_prim}─${c_sec}─${c_logo}─${c_prim}─${c_sec}─${c_logo}─${c_prim}─${c_sec}─${c_logo}─${c_prim}─${c_sec}─${c_logo}─${c_prim}─${c_sec}─${c_logo}─${c_reset}\n"
-    [ "$SIZE" = "large" ] && out+="\n"
-    out+="${c_prim}  OS   ${c_reset} $(get_os)\n"
-    [ "$SIZE" = "large" ] && out+="\n"
-    out+="${c_prim}  ENV  ${c_reset} $(get_env)\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_KERNEL" = true ] && out+="\n"
-    [ "$SHOW_KERNEL" = true ] && out+="${c_prim}  SYS  ${c_reset} $(get_kernel)\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_UPTIME" = true ] && out+="\n"
-    [ "$SHOW_UPTIME" = true ] && out+="${c_prim}  UP   ${c_reset} $(get_uptime)\n"
-    [ "$SIZE" = "large" ] && [ "$SHOW_MEMORY" = true ] && out+="\n"
-    [ "$SHOW_MEMORY" = true ] && out+="${c_prim}  RAM  ${c_reset} $(get_memory)"
+    if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+    out="${out}${c_prim}  OS   ${c_reset} $(get_os)\n"
+    if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+    out="${out}${c_prim}  ENV  ${c_reset} $(get_env)\n"
+    
+    if [ "$SHOW_KERNEL" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_prim}  SYS  ${c_reset} $(get_kernel)\n"
+    fi
+    if [ "$SHOW_UPTIME" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_prim}  UP   ${c_reset} $(get_uptime)\n"
+    fi
+    if [ "$SHOW_MEMORY" = "true" ]; then
+        if [ "$SIZE" = "large" ]; then out="${out}\n"; fi
+        out="${out}${c_prim}  RAM  ${c_reset} $(get_memory)"
+    fi
     sp "$out"
 }
 
@@ -148,9 +182,9 @@ load_config() {
     COLOR="ocean"
     PRESET="classic"
     SIZE="normal"
-    SHOW_KERNEL=true
-    SHOW_UPTIME=true
-    SHOW_MEMORY=true
+    SHOW_KERNEL="true"
+    SHOW_UPTIME="true"
+    SHOW_MEMORY="true"
     INIR_COLOR_PATH=""
 
     if [ -f "$CONFIG_FILE" ]; then
@@ -160,9 +194,9 @@ load_config() {
         echo 'COLOR="ocean"' > "$CONFIG_FILE"
         echo 'PRESET="classic"' >> "$CONFIG_FILE"
         echo 'SIZE="normal"' >> "$CONFIG_FILE"
-        echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
-        echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
-        echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
+        echo 'SHOW_KERNEL="true"' >> "$CONFIG_FILE"
+        echo 'SHOW_UPTIME="true"' >> "$CONFIG_FILE"
+        echo 'SHOW_MEMORY="true"' >> "$CONFIG_FILE"
         echo 'INIR_COLOR_PATH=""' >> "$CONFIG_FILE"
     fi
 }
@@ -172,9 +206,9 @@ save_config() {
     echo 'COLOR="'"$COLOR"'"' > "$CONFIG_FILE"
     echo 'PRESET="'"$PRESET"'"' >> "$CONFIG_FILE"
     echo 'SIZE="'"$SIZE"'"' >> "$CONFIG_FILE"
-    echo 'SHOW_KERNEL='"$SHOW_KERNEL" >> "$CONFIG_FILE"
-    echo 'SHOW_UPTIME='"$SHOW_UPTIME" >> "$CONFIG_FILE"
-    echo 'SHOW_MEMORY='"$SHOW_MEMORY" >> "$CONFIG_FILE"
+    echo 'SHOW_KERNEL="'"$SHOW_KERNEL"'"' >> "$CONFIG_FILE"
+    echo 'SHOW_UPTIME="'"$SHOW_UPTIME"'"' >> "$CONFIG_FILE"
+    echo 'SHOW_MEMORY="'"$SHOW_MEMORY"'"' >> "$CONFIG_FILE"
     echo 'INIR_COLOR_PATH="'"$INIR_COLOR_PATH"'"' >> "$CONFIG_FILE"
 }
 
@@ -228,7 +262,7 @@ print_info() {
 preview() {
     for p in classic block boxes dots full nano; do
         PRESET="$p"
-        echo -e "--- Previewing PRESET: \e[1m$p\e[0m (Size: $SIZE, Color: $COLOR) ---"
+        printf "--- Previewing PRESET: \033[1m%s\033[0m (Size: %s, Color: %s) ---\n" "$p" "$SIZE" "$COLOR"
         print_info
     done
     exit 0
