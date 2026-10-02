@@ -1,26 +1,14 @@
 # Vibefetch 🌊
 
-A minimal, aesthetic system fetch tool for Linux vibecoders. No bloat, just the essentials in your terminal.
-
-## Example
-
-```text
-  VIBEFETCH 
-  OS     | Ubuntu 24.04 LTS
-  Kernel | 6.8.0-31-generic
-  Uptime | 2 hours, 15 minutes
-  Memory | 3245MB / 15892MB
-```
+A minimal, aesthetic system fetch tool for Linux vibecoders.
 
 ## Features
 
-- 🐧 **Fast & Lightweight:** Pure Bash, no heavy dependencies.
-- 🎨 **Aesthetic:** Clean layout with bash ANSI colors.
-- ⚡ **Accurate:** Instant detection of OS, Kernel, Uptime, and Memory usage.
+- 🐧 **Bedrock Linux Support:** Accurately detects `Bedrock Linux` natively!
+- 🎨 **Minimal & Aesthetic:** Clean ANSI layout with 5 built-in preset themes (`ocean`, `dracula`, `cyberpunk`, `forest`, `vaporwave`).
+- ⚙️ **Configurable:** Automatically creates `~/.config/vibefetch/config` on first run to toggle display components or set themes.
 
 ## Installation
-
-Clone the repository and install using `make`:
 
 ```bash
 git clone https://github.com/mundane-0/vibefetch.git
@@ -30,16 +18,25 @@ sudo make install
 
 ## Usage
 
-Simply run `vibefetch` in your terminal:
-
 ```bash
+# Preview all themes (the hover experience)
+vibefetch --preview
+
+# Run normally
 vibefetch
+
+# Override theme on the fly
+vibefetch -t cyberpunk
 ```
 
-## Uninstall
+## Settings
 
-To remove it from your system:
+Settings are generated at `~/.config/vibefetch/config`:
 
 ```bash
-sudo make uninstall
+# Example Config
+THEME="dracula" 
+SHOW_KERNEL=true
+SHOW_UPTIME=true
+SHOW_MEMORY=false # Toggle off to hide memory
 ```
