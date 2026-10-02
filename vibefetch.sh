@@ -50,12 +50,21 @@ print_info() {
     echo ""
 }
 
+preview_themes() {
+    for t in ocean dracula cyberpunk forest vaporwave; do
+        THEME="$t"
+        echo -e "Previewing preset: \e[1m$t\e[0m"
+        print_info
+    done
+}
+
 load_config
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -t|--theme) THEME="$2"; shift ;;
-        -h|--help) echo "Usage: vibefetch [-t theme]"; exit 0 ;;
+        -p|--preview) preview_themes; exit 0 ;;
+        -h|--help) echo "Usage: vibefetch [-t theme] [-p|--preview]"; exit 0 ;;
     esac
     shift
 done
