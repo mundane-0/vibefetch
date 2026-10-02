@@ -8,3 +8,6 @@ get_os() {
         uname -s
     fi
 }
+get_kernel() {
+    uname -r
+}
