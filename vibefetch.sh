@@ -17,3 +17,8 @@ get_uptime() {
 get_memory() {
     free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"
 }
+# Colors
+c_blue="\e[34m"
+c_cyan="\e[36m"
+c_reset="\e[0m"
+c_bold="\e[1m"
