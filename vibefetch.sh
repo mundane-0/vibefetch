@@ -24,13 +24,19 @@ load_config() {
     CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vibefetch"
     CONFIG_FILE="$CONFIG_DIR/config"
     THEME="ocean"
+    SHOW_KERNEL=true
+    SHOW_UPTIME=true
+    SHOW_MEMORY=true
     if [ -f "$CONFIG_FILE" ]; then
         source "$CONFIG_FILE"
     else
         mkdir -p "$CONFIG_DIR"
         echo '# Vibefetch Config' > "$CONFIG_FILE"
-        echo '# Valid Themes: ocean, dracula, cyberpunk, forest, vaporwave' >> "$CONFIG_FILE"
+        echo '# Themes: ocean, dracula, cyberpunk, forest, vaporwave' >> "$CONFIG_FILE"
         echo 'THEME="ocean"' >> "$CONFIG_FILE"
+        echo 'SHOW_KERNEL=true' >> "$CONFIG_FILE"
+        echo 'SHOW_UPTIME=true' >> "$CONFIG_FILE"
+        echo 'SHOW_MEMORY=true' >> "$CONFIG_FILE"
     fi
 }
 
@@ -39,7 +45,7 @@ load_theme "$THEME"
 
 echo -e "${c_logo}${c_bold}  VIBEFETCH ${c_reset}"
 echo -e "${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}"
-echo -e "${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}"
-echo -e "${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}"
-echo -e "${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
+[ "$SHOW_KERNEL" = true ] && echo -e "${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}"
+[ "$SHOW_UPTIME" = true ] && echo -e "${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}"
+[ "$SHOW_MEMORY" = true ] && echo -e "${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
 echo ""
