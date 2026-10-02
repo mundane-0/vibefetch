@@ -7,10 +7,25 @@ get_os() {
 get_kernel() { uname -r; }
 get_uptime() { uptime -p | sed 's/up //'; }
 get_memory() { free -m 2>/dev/null | awk '/^Mem:/ {print $3 "MB / " $2 "MB"}' || echo "N/A"; }
-c_blue="\e[34m"; c_cyan="\e[36m"; c_reset="\e[0m"; c_bold="\e[1m"
-echo -e "${c_cyan}${c_bold}  VIBEFETCH ${c_reset}"
-echo -e "${c_blue}  OS     |${c_reset} $(get_os)"
-echo -e "${c_blue}  Kernel |${c_reset} $(get_kernel)"
-echo -e "${c_blue}  Uptime |${c_reset} $(get_uptime)"
-echo -e "${c_blue}  Memory |${c_reset} $(get_memory)"
+
+load_theme() {
+    case "$1" in
+        dracula) c_prim="\e[35m"; c_sec="\e[36m"; c_logo="\e[35m" ;;
+        cyberpunk) c_prim="\e[33m"; c_sec="\e[36m"; c_logo="\e[36m" ;;
+        forest) c_prim="\e[32m"; c_sec="\e[33m"; c_logo="\e[32m" ;;
+        vaporwave) c_prim="\e[36m"; c_sec="\e[35m"; c_logo="\e[35m" ;;
+        ocean|*) c_prim="\e[34m"; c_sec="\e[36m"; c_logo="\e[34m" ;;
+    esac
+    c_reset="\e[0m"
+    c_bold="\e[1m"
+}
+
+THEME="ocean"
+load_theme "$THEME"
+
+echo -e "${c_logo}${c_bold}  VIBEFETCH ${c_reset}"
+echo -e "${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}"
+echo -e "${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}"
+echo -e "${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}"
+echo -e "${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
 echo ""
