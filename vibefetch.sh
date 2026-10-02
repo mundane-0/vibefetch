@@ -40,12 +40,24 @@ load_config() {
     fi
 }
 
-load_config
-load_theme "$THEME"
+print_info() {
+    load_theme "$THEME"
+    echo -e "${c_logo}${c_bold}  VIBEFETCH ${c_reset}"
+    echo -e "${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}"
+    [ "$SHOW_KERNEL" = true ] && echo -e "${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}"
+    [ "$SHOW_UPTIME" = true ] && echo -e "${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}"
+    [ "$SHOW_MEMORY" = true ] && echo -e "${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
+    echo ""
+}
 
-echo -e "${c_logo}${c_bold}  VIBEFETCH ${c_reset}"
-echo -e "${c_prim}  OS     |${c_reset} ${c_sec}$(get_os)${c_reset}"
-[ "$SHOW_KERNEL" = true ] && echo -e "${c_prim}  Kernel |${c_reset} ${c_sec}$(get_kernel)${c_reset}"
-[ "$SHOW_UPTIME" = true ] && echo -e "${c_prim}  Uptime |${c_reset} ${c_sec}$(get_uptime)${c_reset}"
-[ "$SHOW_MEMORY" = true ] && echo -e "${c_prim}  Memory |${c_reset} ${c_sec}$(get_memory)${c_reset}"
-echo ""
+load_config
+
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -t|--theme) THEME="$2"; shift ;;
+        -h|--help) echo "Usage: vibefetch [-t theme]"; exit 0 ;;
+    esac
+    shift
+done
+
+print_info
